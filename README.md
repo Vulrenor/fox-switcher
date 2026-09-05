@@ -39,7 +39,7 @@ browsers and games.
 ## Install
 
 ```bash
-git clone https://github.com/EugeneTuaev/fox-switcher
+git clone https://github.com/Vulrenor/fox-switcher
 cd fox-switcher
 ./install.sh
 ```

@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-GitHub Issues on `EugeneTuaev/fox-switcher`. See `docs/agents/issue-tracker.md`.
+GitHub Issues on `Vulrenor/fox-switcher`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

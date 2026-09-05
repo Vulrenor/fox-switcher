@@ -1,21 +1,24 @@
 # Issue tracker: GitHub
 
 Issues and specs for this repo live as GitHub issues in
-[`EugeneTuaev/fox-switcher`](https://github.com/EugeneTuaev/fox-switcher) (public).
+[`Vulrenor/fox-switcher`](https://github.com/Vulrenor/fox-switcher) (public).
 Use the `gh` CLI for all operations.
 
-**This working copy is not yet a git clone**, so `gh` cannot infer the repo from
-`git remote -v`. Until the first push, pass `--repo EugeneTuaev/fox-switcher` to
-every `gh` command. Once a remote exists, the flag becomes optional.
+The `origin` remote points at this repo, so `gh` infers it automatically and the
+`--repo` flag below is optional — it is kept explicit so the commands also work
+when run from outside the checkout.
+
+The account was renamed `EugeneTuaev` → `Vulrenor`; the old URL still resolves
+via a 301, but use the canonical name.
 
 ## Conventions
 
-- **Create an issue**: `gh issue create --repo EugeneTuaev/fox-switcher --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view <number> --repo EugeneTuaev/fox-switcher --comments`, filtering comments by `jq` and also fetching labels.
-- **List issues**: `gh issue list --repo EugeneTuaev/fox-switcher --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
-- **Comment on an issue**: `gh issue comment <number> --repo EugeneTuaev/fox-switcher --body "..."`
-- **Apply / remove labels**: `gh issue edit <number> --repo EugeneTuaev/fox-switcher --add-label "..."` / `--remove-label "..."`
-- **Close**: `gh issue close <number> --repo EugeneTuaev/fox-switcher --comment "..."`
+- **Create an issue**: `gh issue create --repo Vulrenor/fox-switcher --title "..." --body "..."`. Use a heredoc for multi-line bodies.
+- **Read an issue**: `gh issue view <number> --repo Vulrenor/fox-switcher --comments`, filtering comments by `jq` and also fetching labels.
+- **List issues**: `gh issue list --repo Vulrenor/fox-switcher --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
+- **Comment on an issue**: `gh issue comment <number> --repo Vulrenor/fox-switcher --body "..."`
+- **Apply / remove labels**: `gh issue edit <number> --repo Vulrenor/fox-switcher --add-label "..."` / `--remove-label "..."`
+- **Close**: `gh issue close <number> --repo Vulrenor/fox-switcher --comment "..."`
 
 ## Pull requests as a triage surface
 
@@ -35,7 +38,7 @@ Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --repo EugeneTuaev/fox-switcher --comments`.
+Run `gh issue view <number> --repo Vulrenor/fox-switcher --comments`.
 
 ## Wayfinding operations
 
