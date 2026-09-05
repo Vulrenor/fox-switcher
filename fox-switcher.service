@@ -1,0 +1,11 @@
+[Unit]
+Description=Fox Switcher — double-tap Shift retypes text in the next keyboard layout
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/fox-switcher
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
