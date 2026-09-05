@@ -27,6 +27,7 @@ SETTLE_S = 0.010        # after a layout switch, before replaying
 IDLE_CLEAR_S = 60.0     # forget the buffer after this much silence
 BUFFER_CAP = 200        # max remembered keystrokes
 RESCAN_S = 1.0          # device hotplug poll
+SUBPROC_S = 2.0         # give up on any helper process that blocks this long
 VIRTUAL_NAME = "Fox Switcher virtual keyboard"
 TERMINAL_CLASSES = {
     "com.mitchellh.ghostty", "ghostty", "Alacritty", "alacritty",
@@ -36,12 +37,18 @@ TERMINAL_CLASSES = {
 # evdev keycodes. Kept literal so the pure logic needs no evdev import.
 KEY_BACKSPACE, KEY_TAB, KEY_ENTER, KEY_ESC = 14, 15, 28, 1
 KEY_LEFTSHIFT, KEY_RIGHTSHIFT = 42, 54
-KEY_KPENTER = 96
+KEY_KPENTER, KEY_CAPSLOCK = 96, 58
 SHIFTS = {KEY_LEFTSHIFT, KEY_RIGHTSHIFT}
 # ctrl, alt, super (left and right)
 NONSHIFT_MODS = {29, 97, 56, 100, 125, 126}
 NAV = {103, 105, 106, 108, 102, 107, 104, 109, 110, 111}  # arrows, home/end, pgup/dn, ins, del
-BOUNDARY = {KEY_ENTER, KEY_KPENTER, KEY_TAB, KEY_ESC} | NAV
+# Keypad keys type a digit with NumLock on and navigate with it off, and we
+# don't track the LED. Caps Lock is the Compose key under `compose:caps`, where
+# one sequence spans several keycodes but produces a single character. Either
+# way the buffer would stop matching the screen, so both just reset it: a
+# conversion that declines to fire beats one that eats the wrong characters.
+KEYPAD = set(range(71, 84)) | {55, 98, 117, 121}
+BOUNDARY = {KEY_ENTER, KEY_KPENTER, KEY_TAB, KEY_ESC, KEY_CAPSLOCK} | NAV | KEYPAD
 PRINTABLE = (
     set(range(2, 14))       # 1..0 - =
     | set(range(16, 28))    # q..]
@@ -49,6 +56,7 @@ PRINTABLE = (
     | {41, 43}              # ` \
     | set(range(44, 54))    # z../
     | {57}                  # space
+    | {86}                  # 102nd key (<>) on ISO keyboards
 )
 
 
@@ -234,12 +242,29 @@ class Env:
     def char_to_key(self, ch, group):
         return self.rev[group].get(ch)
 
+    # -- helper processes ---------------------------------------------------
+    @staticmethod
+    def _run(cmd, **kw):
+        """Run a helper without ever wedging the daemon.
+
+        Everything here is single-threaded: one blocked helper and no
+        keystroke gets handled again. Discarding stdio by default also
+        matters for wl-copy, which forks a child to serve the selection —
+        inheriting our stdout would leave that child holding the pipe.
+        """
+        kw.setdefault("stdout", subprocess.DEVNULL)
+        kw.setdefault("stderr", subprocess.DEVNULL)
+        try:
+            return subprocess.run(cmd, timeout=SUBPROC_S, **kw)
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+
     # -- hyprland -----------------------------------------------------------
     @staticmethod
     def _hypr(*args):
         import json
-        r = subprocess.run(["hyprctl", *args], capture_output=True, text=True)
-        if r.returncode != 0:
+        r = Env._run(["hyprctl", *args], stdout=subprocess.PIPE, text=True)
+        if r is None or r.returncode != 0:
             return None
         try:
             return json.loads(r.stdout)
@@ -288,18 +313,17 @@ class Env:
     # -- selection / clipboard / notify -------------------------------------
     @staticmethod
     def primary():
-        r = subprocess.run(["wl-paste", "--primary", "--no-newline"],
-                           capture_output=True, text=True)
-        return r.stdout if r.returncode == 0 else ""
+        r = Env._run(["wl-paste", "--primary", "--no-newline"],
+                     stdout=subprocess.PIPE, text=True)
+        return r.stdout if r and r.returncode == 0 else ""
 
     @staticmethod
     def clip(text):
-        subprocess.run(["wl-copy"], input=text, text=True)
+        Env._run(["wl-copy"], input=text, text=True)
 
     @staticmethod
     def notify(msg):
-        subprocess.run(["notify-send", "-t", "2000", msg],
-                       stderr=subprocess.DEVNULL, check=False)
+        Env._run(["notify-send", "-t", "2000", msg])
 
 
 # ----------------------------------------------------------------- daemon ----
@@ -497,6 +521,22 @@ def selftest():
     sw.on_key(29, False, 0.2)
     double_tap(sw, 1.0)
     assert not sw.env.calls, "Ctrl combo must clear the buffer"
+
+    # Keys that put a character on screen without landing in the buffer would
+    # make the backspace count too low and eat text that was already there.
+    for code in (79, 71, 82, 55, 98, KEY_CAPSLOCK):           # KP1 KP7 KP0 KP* KP/ compose
+        sw = Switcher(FakeEnv())
+        for c in (10, 11, 12):
+            sw.on_key(c, True, 0); sw.on_key(c, False, 0)
+        sw.on_key(code, True, 0.1); sw.on_key(code, False, 0.1)
+        double_tap(sw, 1.0)
+        assert not sw.env.calls, f"keycode {code} must reset the buffer, not desync it"
+
+    sw = Switcher(FakeEnv())                                  # 102nd key is normal text
+    sw.on_key(86, True, 0); sw.on_key(86, False, 0)
+    sw.on_key(10, True, 0.1); sw.on_key(10, False, 0.1)
+    double_tap(sw, 1.0)
+    assert sw.env.calls[0] == ("bs", 2), sw.env.calls
 
     sw = Switcher(FakeEnv())                                  # mouse click
     sw.on_key(10, True, 0); sw.on_key(10, False, 0)
