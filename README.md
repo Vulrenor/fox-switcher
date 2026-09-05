@@ -36,30 +36,60 @@ Replay is injected through `/dev/uinput` as real kernel-level key events, so it
 behaves identically in Ghostty, Claude Code and other TUIs, XWayland apps,
 browsers and games.
 
+## Install
+
+```bash
+git clone https://github.com/EugeneTuaev/fox-switcher
+cd fox-switcher
+./install.sh
+```
+
+The installer checks your system, installs any missing packages, adds you to the
+`input` group if needed, installs the binary and the user service, runs the
+self-test, and starts it. To remove everything again:
+
+```bash
+./install.sh --uninstall
+```
+
+## Log out and back in
+
+**If the installer added you to the `input` group, you must start a new login
+session before Fox Switcher can work.** Linux applies group membership only at
+login, so your current session cannot read the keyboard no matter what is
+installed. Either option works:
+
+- **Log out:** `hyprctl dispatch exit`, then log back in at your display manager
+- **Or just reboot:** `systemctl reboot` — simplest, and always works
+
+It starts by itself afterwards. Confirm with:
+
+```bash
+id -nG | grep -qw input && echo "input group: ok"
+python3 -c "import evdev; print(len(evdev.list_devices()), 'devices readable')"
+systemctl --user status fox-switcher
+```
+
+The device count must be greater than 0. If it prints `0`, the session still
+does not have the group — reboot.
+
+The installer already tells you this at the end, so you only need this section
+if you skipped it.
+
 ## Requirements
+
+Handled by the installer, listed here for reference:
 
 - Hyprland (uses `hyprctl switchxkblayout`)
 - `python-evdev`, `python-xkbcommon`, `wl-clipboard`
 - Membership of the `input` group
+- `/dev/uinput` writable — on most systems logind already grants this via ACL
+
+Manual install, if you prefer:
 
 ```bash
 sudo pacman -S python-evdev python-xkbcommon wl-clipboard
 sudo usermod -aG input "$USER"
-```
-
-Then **log out and back in** — group membership only applies to a new login
-session. Verify:
-
-```bash
-id -nG | grep -q input && python3 -c "import evdev; print(len(evdev.list_devices()))"
-```
-
-That must print a number greater than 0. `/dev/uinput` must also be writable by
-you; on most systems logind already grants this via ACL.
-
-## Install
-
-```bash
 install -Dm755 fox_switcher.py ~/.local/bin/fox-switcher
 install -Dm644 fox-switcher.service ~/.config/systemd/user/fox-switcher.service
 systemctl --user daemon-reload
